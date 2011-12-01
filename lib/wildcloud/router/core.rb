@@ -73,12 +73,14 @@ module Wildcloud
       def handle_add_route(data)
         host = data['host']
         ( @routes[host] ||= [] ) << parse_target(data['target'])
+        Router.logger.debug("(Core) Routes: #{@routes.inspect}")
       end
 
       def handle_remove_route(data)
         host = data['host']
         return unless @routes[host]
         @routes[host].delete(parse_target(data['target']))
+        Router.logger.debug("(Core) Routes: #{@routes.inspect}")
       end
 
       def resolve(host)

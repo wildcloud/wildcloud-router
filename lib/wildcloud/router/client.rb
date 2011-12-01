@@ -28,11 +28,6 @@ module Wildcloud
 
       def post_init
         Router.logger.debug("(Proxy client) Client connected")
-        send_line(@proxy.head)
-        @proxy.headers.each do |name, value|
-          send_line("#{name}: #{value}")
-        end
-        send_line('')
         @proxy.buffer.each do |chunk|
           send_data(chunk)
         end
