@@ -41,6 +41,8 @@ module Wildcloud
       def receive_data(data)
         @buffer << data
         @parser << data
+      rescue HTTP::Parser::Error => error
+        Router.logger.error("(Proxy) Error during parsing #{e.message}")
       end
 
       def unbind
