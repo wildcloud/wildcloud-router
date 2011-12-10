@@ -13,8 +13,6 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-require 'pp'
-
 require 'http/parser'
 
 require 'wildcloud/router/client'
@@ -41,7 +39,10 @@ module Wildcloud
       end
 
       def receive_data(data)
+        @buffer << data
         @parser << data
+      rescue HTTP::Parser::Error => error
+        Router.logger.error("(Proxy) Error during parsing #{error.message}")
       end
 
       def unbind
@@ -57,8 +58,6 @@ module Wildcloud
         target = @core.resolve(host)
         return bad_request unless target
         Router.logger.debug("(Proxy) Client targets to #{target.inspect}")
-        @headers = headers
-        @head = "#{@parser.http_method} #{@parser.request_url} HTTP/#{@parser.http_version.join('.')}"
         if target["socket"]
           @client = EventMachine.connect(target["socket"], Router::Client, self)
         else
