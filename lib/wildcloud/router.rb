@@ -16,6 +16,7 @@
 if $0 == __FILE__
   $: << File.expand_path('../..', __FILE__)
   require 'bundler/setup'
+  require 'rbtrace'
   require 'wildcloud/router/server'
   require 'eventmachine'
   EventMachine.run do

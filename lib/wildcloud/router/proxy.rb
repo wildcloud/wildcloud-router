@@ -28,6 +28,7 @@ module Wildcloud
         @parser = Http::Parser.new(self)
         @buffer = []
         @closed = false
+        @time = Time.now
       end
 
       def post_init
@@ -46,9 +47,9 @@ module Wildcloud
       end
 
       def unbind
-        Router.logger.debug("(Proxy) Client disconnected")
         @closed = true
         @client.close_connection(true) if @client and !@client.closed?
+        Router.logger.debug("(Proxy) Client disconnected (#{(Time.now - @time) * 1000})")
       end
 
       def on_headers_complete(headers)
@@ -66,8 +67,8 @@ module Wildcloud
       end
 
       def bad_request
-        Router.logger.debug("(Proxy) Client issued bad request")
         close_connection(true)
+        Router.logger.debug("(Proxy) Client issued bad request (#{(Time.now - @time) * 1000})")
       end
 
       def on_body(chunk)

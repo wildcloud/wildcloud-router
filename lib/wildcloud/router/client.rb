@@ -13,6 +13,8 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+require 'http/parser'
+
 module Wildcloud
   module Router
     module Client
@@ -20,6 +22,9 @@ module Wildcloud
       def initialize(proxy)
         @proxy = proxy
         @closed = false
+        @parser = Http::Parser.new(self)
+        @buffer = []
+        @time = Time.now
       end
 
       def closed?
@@ -33,17 +38,26 @@ module Wildcloud
         end
         Router.logger.debug("(Proxy client) Enabling native proxy")
         EventMachine.enable_proxy(@proxy, self)
-        EventMachine.enable_proxy(self, @proxy)
       end
 
       def receive_data(data)
-        Router.logger.error("(Proxy client) Received response data")
+        @buffer << data
+        @parser << data
+      rescue Http::Parser::Error => error
+        Router.logger.debug("(Proxy client) Error #{error}")
+      end
+
+      def on_headers_complete(headers)
+        @buffer.each do |chunk|
+          @proxy.send_data(chunk)
+        end
+        EventMachine.enable_proxy(self, @proxy)
       end
 
       def unbind
-        Router.logger.debug("(Proxy client) Client disconnected")
         @closed = true
         @proxy.close_connection(true) if @proxy and !@proxy.closed?
+        Router.logger.debug("(Proxy client) Client disconnected (#{(Time.now - @time) * 1000})")
       end
 
       def send_line(data)
