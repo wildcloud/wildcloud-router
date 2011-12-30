@@ -12,23 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-require 'wildcloud/router/configuration'
-require 'wildcloud/router/logger'
-require 'wildcloud/router/core'
-require 'wildcloud/router/proxy'
-
 module Wildcloud
   module Router
-    class Server
-
-      def self.start
-        Router.logger.info('Server') { 'Starting' }
-        addr = Router.configuration['http']['address']
-        port = Router.configuration['http']['port']
-        EventMachine.start_server(addr, port, Router::Proxy, Wildcloud::Router::Core.instance)
-        Router.logger.info('Server') { 'Started' }
-      end
-
-    end
+    VERSION = '0.0.1' unless const_defined?(:VERSION)
   end
 end

@@ -1,3 +1,5 @@
+#!/usr/bin/env ruby
+#
 # Copyright 2011 Marek Jelen
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,23 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-require 'wildcloud/router/configuration'
-require 'wildcloud/router/logger'
-require 'wildcloud/router/core'
-require 'wildcloud/router/proxy'
+$: << File.expand_path('../../lib', __FILE__)
 
-module Wildcloud
-  module Router
-    class Server
+require 'rubygems'
+require 'bundler/setup'
 
-      def self.start
-        Router.logger.info('Server') { 'Starting' }
-        addr = Router.configuration['http']['address']
-        port = Router.configuration['http']['port']
-        EventMachine.start_server(addr, port, Router::Proxy, Wildcloud::Router::Core.instance)
-        Router.logger.info('Server') { 'Started' }
-      end
+require 'eventmachine'
 
-    end
-  end
+require 'wildcloud/router/server'
+
+EventMachine.run do
+    Wildcloud::Router::Server.start
 end

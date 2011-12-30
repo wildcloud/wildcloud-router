@@ -1,17 +1,16 @@
-# Copyright (C) 2011 Marek Jelen
+# Copyright 2011 Marek Jelen
 #
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU Affero General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU Affero General Public License for more details.
+#    http://www.apache.org/licenses/LICENSE-2.0
 #
-# You should have received a copy of the GNU Affero General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 require 'http/parser'
 
@@ -21,7 +20,7 @@ module Wildcloud
   module Router
     module Proxy
 
-      attr_reader :core, :headers, :buffer, :head
+      attr_reader :core, :request_headers, :buffer, :request_version, :request_method, :request_url
 
       def initialize(core)
         @core = core
@@ -32,7 +31,6 @@ module Wildcloud
       end
 
       def post_init
-        Router.logger.debug("(Proxy) New client connected")
       end
 
       def closed?
@@ -40,25 +38,24 @@ module Wildcloud
       end
 
       def receive_data(data)
-        @buffer << data
         @parser << data
       rescue HTTP::Parser::Error => error
-        Router.logger.error("(Proxy) Error during parsing #{error.message}")
+        Router.logger.debug('Proxy') { "Error during parsing #{error.message}" }
       end
 
       def unbind
         @closed = true
         @client.close_connection(true) if @client and !@client.closed?
-        Router.logger.debug("(Proxy) Client disconnected (#{(Time.now - @time) * 1000})")
       end
 
       def on_headers_complete(headers)
-        host = headers['Host']
-        return bad_request unless host
-        Router.logger.debug("(Proxy) Client requests #{host}")
-        target = @core.resolve(host)
+        @request_headers = headers
+        @request_version = @parser.http_version.join('.')
+        @request_method = @parser.http_method
+        @request_url = @parser.request_url
+        return bad_request unless @request_headers['Host']
+        target = @core.resolve(@request_headers['Host'])
         return bad_request unless target
-        Router.logger.debug("(Proxy) Client targets to #{target.inspect}")
         if target["socket"]
           @client = EventMachine.connect(target["socket"], Router::Client, self)
         else
@@ -68,11 +65,14 @@ module Wildcloud
 
       def bad_request
         close_connection(true)
-        Router.logger.debug("(Proxy) Client issued bad request (#{(Time.now - @time) * 1000})")
       end
 
       def on_body(chunk)
         @buffer << chunk
+      end
+
+      def send_line(data)
+        send_data("#{data}\r\n")
       end
 
     end
