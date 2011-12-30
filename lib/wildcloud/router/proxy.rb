@@ -28,6 +28,7 @@ module Wildcloud
         @buffer = []
         @closed = false
         @time = Time.now
+        @request_headers = nil
       end
 
       def post_init
@@ -38,7 +39,15 @@ module Wildcloud
       end
 
       def receive_data(data)
-        @parser << data
+        offset = @parser << data
+        if @request_headers
+          @buffer = data[offset..-1]
+          if @target["socket"]
+            @client = EventMachine.connect(@target["socket"], Router::Client, self)
+          else
+            @client = EventMachine.connect(@target["address"], @target["port"], Router::Client, self)
+          end
+        end
       rescue HTTP::Parser::Error => error
         Router.logger.debug('Proxy') { "Error during parsing #{error.message}" }
       end
@@ -54,17 +63,14 @@ module Wildcloud
         @request_method = @parser.http_method
         @request_url = @parser.request_url
         return bad_request unless @request_headers['Host']
-        target = @core.resolve(@request_headers['Host'])
-        return bad_request unless target
-        if target["socket"]
-          @client = EventMachine.connect(target["socket"], Router::Client, self)
-        else
-          @client = EventMachine.connect(target["address"], target["port"], Router::Client, self)
-        end
+        @target = @core.resolve(@request_headers['Host'])
+        return bad_request unless @target
+        :stop
       end
 
       def bad_request
         close_connection(true)
+        :stop
       end
 
       def on_body(chunk)

@@ -36,9 +36,7 @@ module Wildcloud
           send_line("#{name}: #{value}")
         end
         send_line('')
-        @proxy.buffer.each do |chunk|
-          send_data(chunk)
-        end
+        send_data(@proxy.buffer)
         EventMachine.enable_proxy(@proxy, self)
       end
 
