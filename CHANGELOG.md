@@ -1,4 +1,4 @@
-## 0.0.3 (30.12.2011)
+## 0.0.3 (9.1.2012)
 
 * big rewrite
 * depend on wildcloud-logger and wildcloud-configuration
