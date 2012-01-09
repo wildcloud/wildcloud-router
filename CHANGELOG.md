@@ -1,3 +1,10 @@
+## 0.0.3 (30.12.2011)
+
+* big rewrite
+* depend on wildcloud-logger and wildcloud-configuration
+* reporting
+* basic support for keep-alive from clients
+
 ## 0.0.2 (30.12.2011)
 
 * bugfix: race condition in connection to backend server

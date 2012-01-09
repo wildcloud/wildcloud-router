@@ -41,6 +41,7 @@ module Wildcloud
       def connect_amqp
         Router.logger.info('Core') { "Connecting to broker" }
         @amqp = AMQP.connect(Router.configuration["amqp"])
+        Router.logger_add_amqp(@amqp)
         @channel = AMQP::Channel.new(@amqp)
         # Communication infrastructure
         @topic = @channel.topic('wildcloud.router')
@@ -64,12 +65,12 @@ module Wildcloud
         @routes = data['routes']
       end
 
-      def parse_target(target)
-        target = target.split(':')
+      def parse_target(raw_target)
+        target = raw_target.split(':')
         if target.size == 1
-          { "socket" => target[0] }
+          { "socket" => target[0]}
         else
-          { "address" => target[0], "port" => target[1] }
+          { "address" => target[0], "port" => target[1]}
         end
       end
 

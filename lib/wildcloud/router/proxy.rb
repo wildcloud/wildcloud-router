@@ -15,39 +15,27 @@
 require 'http/parser'
 
 require 'wildcloud/router/client'
+require 'wildcloud/router/monitor'
 
 module Wildcloud
   module Router
     module Proxy
 
-      attr_reader :core, :request_headers, :buffer, :request_version, :request_method, :request_url
+      attr_reader :core, :start_time
 
       def initialize(core)
         @core = core
-        @parser = Http::Parser.new(self)
-        @buffer = []
         @closed = false
-        @time = Time.now
-        @request_headers = nil
       end
+
+      # EventMachine
 
       def post_init
       end
 
-      def closed?
-        @closed
-      end
-
       def receive_data(data)
-        offset = @parser << data
-        if @request_headers
-          @buffer = data[offset..-1]
-          if @target["socket"]
-            @client = EventMachine.connect(@target["socket"], Router::Client, self)
-          else
-            @client = EventMachine.connect(@target["address"], @target["port"], Router::Client, self)
-          end
-        end
+        @parser ||= Http::RequestParser.new(self)
+        @parser << data
       rescue HTTP::Parser::Error => error
         Router.logger.debug('Proxy') { "Error during parsing #{error.message}" }
       end
@@ -57,24 +45,41 @@ module Wildcloud
         @client.close_connection(true) if @client and !@client.closed?
       end
 
+      # HTTP parser
+
+      def on_message_begin
+        @start_time = Time.now
+      end
+
       def on_headers_complete(headers)
-        @request_headers = headers
-        @request_version = @parser.http_version.join('.')
-        @request_method = @parser.http_method
-        @request_url = @parser.request_url
-        return bad_request unless @request_headers['Host']
-        @target = @core.resolve(@request_headers['Host'])
-        return bad_request unless @target
-        :stop
+        return bad_request unless headers['Host']
+        target = @core.resolve(headers['Host'])
+        return bad_request unless target
+        if target["socket"]
+          @client = EventMachine.connect(target["socket"], Router::Client, target)
+        else
+          @client = EventMachine.connect(target["address"], target["port"], Router::Client, target)
+        end
+        @client.make_request(self, @parser.http_version.join('.'), @parser.http_method, @parser.request_url, headers)
+      end
+
+      def on_body(chunk)
+        @client.send_data(chunk)
+      end
+
+      def on_message_complete
+        @parser = nil
+      end
+
+      # Tools
+
+      def closed?
+        @closed
       end
 
       def bad_request
         close_connection(true)
         :stop
-      end
-
-      def on_body(chunk)
-        @buffer << chunk
       end
 
       def send_line(data)

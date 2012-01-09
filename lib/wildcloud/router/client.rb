@@ -18,33 +18,33 @@ module Wildcloud
   module Router
     module Client
 
-      def initialize(proxy)
-        @proxy = proxy
+      def initialize(target)
+        @target = target
         @closed = false
-        @parser = Http::Parser.new(self)
-        @buffer = []
-        @time = Time.now
       end
 
-      def closed?
-        @closed
-      end
+      # EventMachine
 
       def post_init
-        send_line("#{@proxy.request_method} #{@proxy.request_url} HTTP/#{@proxy.request_version}")
-        @proxy.request_headers.each do |name, value|
-          send_line("#{name}: #{value}")
-        end
-        send_line('')
-        send_data(@proxy.buffer)
-        EventMachine.enable_proxy(@proxy, self)
+        @parser = Http::ResponseParser.new(self)
       end
 
       def receive_data(data)
+        @outbound += data.size
         @parser << data
       rescue Http::Parser::Error => error
         Router.logger.debug('Proxy client') { "Error #{error}" }
       end
+
+      def unbind
+        @parser = nil
+        @stop_time = Time.now
+        Router.monitor.request(@target, @stop_time - @proxy.start_time, @inbound, @outbound)
+        @closed = true
+        @proxy.close_connection(true) if @proxy and !@proxy.closed?
+      end
+
+      # HTTP parser
 
       def on_headers_complete(headers)
         @proxy.send_line("HTTP/#{@parser.http_version.join('.')} #{@parser.status_code} #{CODE[@parser.status_code]}")
@@ -52,16 +52,36 @@ module Wildcloud
           @proxy.send_line("#{name}: #{value}")
         end
         @proxy.send_line('')
-        EventMachine.enable_proxy(self, @proxy)
-      end
-
-      def unbind
-        @closed = true
-        @proxy.close_connection(true) if @proxy and !@proxy.closed?
       end
 
       def on_body(chunk)
         @proxy.send_data(chunk)
+      end
+
+      def on_message_complete
+        close_connection
+      end
+
+      # Tools
+
+      def make_request(proxy, version, method, url, headers)
+        @proxy = proxy
+        @inbound = 0
+        @outbound = 0
+        send_line("#{method} #{url} HTTP/#{version}")
+        headers.each do |name, value|
+          send_line("#{name}: #{value}")
+        end
+        send_line('')
+      end
+
+      def send_data(data)
+        @inbound += data.size
+        super(data)
+      end
+
+      def closed?
+        @closed
       end
 
       def send_line(data)

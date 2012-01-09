@@ -14,17 +14,19 @@
 require 'yaml'
 
 require 'wildcloud/router/logger'
+require 'wildcloud/configuration'
 
 module Wildcloud
   module Router
+
     def self.configuration
       return @configuration if @configuration
-      file = '/etc/wildcloud/router.yml'
-      unless File.exists?(file)
-        file = './router.yml'
+      config = Wildcloud::Configuration.load('router')
+      config.sources.each do |source|
+        self.logger.info('Configuration', "Loaded configuration from #{source}")
       end
-      Router.logger.info('Config') { "Loading from file #{file}" }
-      @configuration = YAML.load_file(file)
+      @configuration = config.configuration
     end
+
   end
 end

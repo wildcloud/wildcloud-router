@@ -22,6 +22,14 @@ require 'eventmachine'
 
 require 'wildcloud/router/server'
 
+begin
+    EventMachine.epoll
+end
+
+begin
+    EventMachine.kqueue
+end
+
 EventMachine.run do
     Wildcloud::Router::Server.start
 end

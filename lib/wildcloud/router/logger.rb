@@ -27,11 +27,14 @@ module Wildcloud
         @logger = Wildcloud::Logger::Logger.new
         @logger.application = 'wildcloud.router'
         @logger.add(Wildcloud::Logger::Middleware::Console)
-        @logger.add(Wildcloud::Logger::Middleware::Json)
-        @topic = AMQP::Channel.new(Core.instance.amqp).topic('wildcloud.logger')
-        @logger.add(Wildcloud::Logger::Middleware::Amqp, :exchange => @topic, :routing_key => 'wildcloud.router')
       end
       @logger
+    end
+
+    def self.logger_add_amqp(amqp)
+      logger.add(Wildcloud::Logger::Middleware::Json)
+      @topic = AMQP::Channel.new(amqp).topic('wildcloud.logger')
+      logger.add(Wildcloud::Logger::Middleware::Amqp, :exchange => @topic, :routing_key => 'wildcloud.router')
     end
 
   end
